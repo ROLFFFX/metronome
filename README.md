@@ -1,2 +1,2 @@
 # metronome
-An IOS metronome App.
+An IOS metronome App (in progress).
