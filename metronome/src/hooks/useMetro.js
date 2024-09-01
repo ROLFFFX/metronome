@@ -5,77 +5,63 @@ const useMetro = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [tempo, setTempo] = useState(120); // Default tempo in beats per minute (BPM)
   const soundRef = useRef(null);
-  const timeoutRef = useRef(null);
   const nextTickTimeRef = useRef(0); // To keep track of the next scheduled tick
-  const lookahead = 25; // How often to call scheduling function (in ms)
-  const scheduleAheadTime = 0.1; // How far ahead to schedule audio (in seconds)
+  const lookahead = 0.1; // How far ahead to schedule audio (in seconds)
 
   useEffect(() => {
-    // Load the sound when the component mounts
     const loadSound = async () => {
-      await Audio.setIsEnabledAsync(true); // Ensure audio is enabled
       const { sound } = await Audio.Sound.createAsync(
-        require("../../assets/click.mp3"),
-        { shouldPlay: false, isLooping: false }
+        require("../../assets/click.mp3"), // Ensure you have the correct path to your sound file
+        { shouldPlay: false }
       );
       soundRef.current = sound;
     };
 
     loadSound();
 
-    // Cleanup function to unload the sound when the component unmounts
     return () => {
       if (soundRef.current) {
         soundRef.current.unloadAsync();
       }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
     };
   }, []);
 
-  const scheduleNote = (time) => {
+  const playClick = async () => {
     if (soundRef.current) {
-      // Play the sound with slight delay to match scheduled time
-      const playAtTime = time - Audio.getStatusAsync().positionMillis / 1000;
-      if (playAtTime > 0) {
-        setTimeout(() => soundRef.current.replayAsync(), playAtTime * 1000);
-      } else {
-        soundRef.current.replayAsync();
-      }
+      await soundRef.current.replayAsync();
     }
   };
 
-  const scheduler = () => {
-    while (
-      nextTickTimeRef.current <
-      Audio.getStatusAsync().positionMillis / 1000 + scheduleAheadTime
-    ) {
-      scheduleNote(nextTickTimeRef.current);
-      nextNote();
-    }
-    timeoutRef.current = setTimeout(scheduler, lookahead);
-  };
+  let now = Date.now();
+  function deb(time) {
+    console.log(time - now);
+    now = time;
+  }
 
-  const nextNote = () => {
-    const secondsPerBeat = 60.0 / tempo; // Calculate the duration of one beat
-    nextTickTimeRef.current += secondsPerBeat; // Advance the time for the next note
+  const scheduleClick = async () => {
+    const secondsPerBeat = 60.0 / tempo;
+    const currentTime = Date.now() / 1000; // Convert to seconds
+    while (nextTickTimeRef.current < currentTime + lookahead) {
+      await playClick();
+      deb(Date.now());
+      nextTickTimeRef.current += secondsPerBeat;
+    }
   };
 
   useEffect(() => {
+    let interval;
     if (isPlaying) {
-      nextTickTimeRef.current = Audio.getStatusAsync().positionMillis / 1000;
-      scheduler();
+      nextTickTimeRef.current = Date.now() / 1000 + 0.1; // Start after a short delay
+      interval = setInterval(scheduleClick, lookahead * 1000);
     } else {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
+      if (interval) {
+        clearInterval(interval);
       }
     }
 
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
+      if (interval) {
+        clearInterval(interval);
       }
     };
   }, [isPlaying, tempo]);
