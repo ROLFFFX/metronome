@@ -32,37 +32,38 @@ const useMetro = () => {
     }
   };
 
+  // debugging function to output the intervals
   let now = Date.now();
   function deb(time) {
     console.log(time - now);
     now = time;
   }
 
-  const scheduleClick = async () => {
+  const scheduleClick = () => {
     const secondsPerBeat = 60.0 / tempo;
     const currentTime = Date.now() / 1000; // Convert to seconds
-    while (nextTickTimeRef.current < currentTime + lookahead) {
-      await playClick();
-      deb(Date.now());
+
+    if (nextTickTimeRef.current < currentTime + lookahead) {
+      playClick();
+      // deb(Date.now());   // debugging lines
       nextTickTimeRef.current += secondsPerBeat;
+    }
+
+    // Schedule the next tick using requestAnimationFrame
+    if (isPlaying) {
+      requestAnimationFrame(scheduleClick);
     }
   };
 
   useEffect(() => {
-    let interval;
     if (isPlaying) {
-      nextTickTimeRef.current = Date.now() / 1000 + 0.1; // Start after a short delay
-      interval = setInterval(scheduleClick, lookahead * 1000);
-    } else {
-      if (interval) {
-        clearInterval(interval);
-      }
+      nextTickTimeRef.current = Date.now() / 1000; // Start after a short delay
+      requestAnimationFrame(scheduleClick);
     }
 
+    // Cleanup function to stop the clicks on component unmount or isPlaying change
     return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
+      nextTickTimeRef.current = 0;
     };
   }, [isPlaying, tempo]);
 
